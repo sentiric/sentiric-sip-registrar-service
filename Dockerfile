@@ -21,7 +21,7 @@ ENV BUILD_DATE=${BUILD_DATE}
 ENV SERVICE_VERSION=${SERVICE_VERSION}
 
 # Derlemeyi yap
-RUN cargo build --release --bin sentiric-registrar-service
+RUN cargo build --release --bin sentiric-sip-registrar-service
 
 # --- STAGE 2: Final (Minimal) Image ---
 FROM debian:bookworm-slim
@@ -43,9 +43,9 @@ ENV SERVICE_VERSION=${SERVICE_VERSION}
 WORKDIR /app
 
 # Executable adı Cargo.toml'daki name ile uyumlu olmalı
-COPY --from=builder /app/target/release/sentiric-registrar-service .
+COPY --from=builder /app/target/release/sentiric-sip-registrar-service .
 
 # Güvenlik için root olmayan bir kullanıcıyla çalıştır
 RUN useradd -m -u 1001 appuser
 USER appuser
-ENTRYPOINT ["./sentiric-registrar-service"]
+ENTRYPOINT ["./sentiric-sip-registrar-service"]

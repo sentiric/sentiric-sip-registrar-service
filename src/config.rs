@@ -30,8 +30,8 @@ pub struct AppConfig {
 
 impl AppConfig {
     pub fn load_from_env() -> Result<Self> {
-        let grpc_port = env::var("REGISTRAR_SERVICE_GRPC_PORT").unwrap_or_else(|_| "13061".to_string());
-        let http_port = env::var("REGISTRAR_SERVICE_HTTP_PORT").unwrap_or_else(|_| "13060".to_string());
+        let grpc_port = env::var("SIP_REGISTRAR_SERVICE_GRPC_PORT").unwrap_or_else(|_| "13061".to_string());
+        let http_port = env::var("SIP_REGISTRAR_SERVICE_HTTP_PORT").unwrap_or_else(|_| "13060".to_string());
         
         let grpc_addr: SocketAddr = format!("[::]:{}", grpc_port).parse()?;
         let http_addr: SocketAddr = format!("[::]:{}", http_port).parse()?;
@@ -51,8 +51,8 @@ impl AppConfig {
             service_version: env::var("SERVICE_VERSION").unwrap_or_else(|_| "1.1.4".to_string()),
             node_hostname: env::var("NODE_HOSTNAME").unwrap_or_else(|_| "localhost".to_string()),
 
-            cert_path: env::var("REGISTRAR_SERVICE_CERT_PATH").context("ZORUNLU: REGISTRAR_SERVICE_CERT_PATH eksik")?,
-            key_path: env::var("REGISTRAR_SERVICE_KEY_PATH").context("ZORUNLU: REGISTRAR_SERVICE_KEY_PATH eksik")?,
+            cert_path: env::var("SIP_REGISTRAR_SERVICE_CERT_PATH").context("CERT PATH eksik")?,
+            key_path: env::var("SIP_REGISTRAR_SERVICE_KEY_PATH").context("KEY PATH eksik")?,
             ca_path: env::var("GRPC_TLS_CA_PATH").context("ZORUNLU: GRPC_TLS_CA_PATH eksik")?,
         })
     }

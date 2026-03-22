@@ -1,6 +1,6 @@
 // sentiric-registrar-service/src/main.rs
 use anyhow::{Context, Result};
-use sentiric_registrar_service::app::App;
+use sentiric_sip_registrar_service::app::App;
 use std::process;
 
 fn main() -> Result<()> {

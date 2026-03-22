@@ -28,7 +28,7 @@ impl App {
         
         if config.log_format == "json" {
             let suts_formatter = SutsFormatter::new(
-                "registrar-service".to_string(),
+                "sip-registrar-service".to_string(),
                 config.service_version.clone(),
                 config.env.clone(),
                 config.node_hostname.clone(),
@@ -40,7 +40,7 @@ impl App {
         
         info!(
             event = "SYSTEM_STARTUP",
-            service_name = "sentiric-registrar-service",
+            service_name = "sip-registrar-service",
             version = %config.service_version,
             profile = %config.env,
             "🚀 Registrar Service başlatılıyor (SUTS v4.0 - AutoHealing Redis)"
