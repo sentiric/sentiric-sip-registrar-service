@@ -1,4 +1,4 @@
-// src/config.rs
+// Dosya: src/config.rs
 use anyhow::{Context, Result};
 use std::env;
 use std::net::SocketAddr;
@@ -18,14 +18,16 @@ pub struct AppConfig {
     // Observability
     pub env: String,
     pub rust_log: String,
-    pub log_format: String, // YENİ
-    pub node_hostname: String, // YENİ
+    pub log_format: String,
+    pub node_hostname: String,
     pub service_version: String,
     
     // TLS Yolları
     pub cert_path: String,
     pub key_path: String,
     pub ca_path: String,
+    
+    pub tenant_id: String, // [ARCH-COMPLIANCE] Tenant ID runtime'da çözülmek için eklendi
 }
 
 impl AppConfig {
@@ -35,6 +37,14 @@ impl AppConfig {
         
         let grpc_addr: SocketAddr = format!("[::]:{}", grpc_port).parse()?;
         let http_addr: SocketAddr = format!("[::]:{}", http_port).parse()?;
+        
+        // [ARCH-COMPLIANCE] tenant_id zorunlu alan doğrulaması
+        let tenant_id = env::var("TENANT_ID")
+            .map_err(|_| anyhow::anyhow!("[ARCH-COMPLIANCE] TENANT_ID env var zorunludur, tanımlanmamış"))?;
+        
+        if tenant_id.is_empty() {
+            anyhow::bail!("[ARCH-COMPLIANCE] TENANT_ID boş olamaz");
+        }
             
         Ok(AppConfig {
             grpc_listen_addr: grpc_addr,
@@ -54,6 +64,8 @@ impl AppConfig {
             cert_path: env::var("SIP_REGISTRAR_SERVICE_CERT_PATH").context("CERT PATH eksik")?,
             key_path: env::var("SIP_REGISTRAR_SERVICE_KEY_PATH").context("KEY PATH eksik")?,
             ca_path: env::var("GRPC_TLS_CA_PATH").context("ZORUNLU: GRPC_TLS_CA_PATH eksik")?,
+            
+            tenant_id,
         })
     }
 }

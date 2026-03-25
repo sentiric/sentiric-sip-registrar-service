@@ -1,4 +1,4 @@
-// src/app.rs
+// Dosya: src/app.rs
 use crate::config::AppConfig;
 use crate::grpc::service::MyRegistrarService;
 use crate::grpc::client::InternalClients;
@@ -32,6 +32,7 @@ impl App {
                 config.service_version.clone(),
                 config.env.clone(),
                 config.node_hostname.clone(),
+                config.tenant_id.clone(), // [ARCH-COMPLIANCE] Tenant enjekte edildi
             );
             subscriber.with(fmt::layer().event_format(suts_formatter)).init();
         } else {
@@ -52,7 +53,7 @@ impl App {
     pub async fn run(self) -> anyhow::Result<()> {
         let (shutdown_tx, mut shutdown_rx) = mpsc::channel(1);
 
-        // 1. Redis Connection (Auto-Healing ConnectionManager)
+        // 1. Redis Connection
         let redis_conn = self.init_redis().await?;
         let store = RegistrationStore::new(redis_conn);
 
@@ -93,7 +94,6 @@ impl App {
         loop {
             match redis::Client::open(self.config.redis_url.as_str()) {
                 Ok(client) => {
-                    // [KRİTİK DÜZELTME]: ConnectionManager başlatıyoruz.
                     match redis::aio::ConnectionManager::new(client).await {
                         Ok(conn) => {
                             info!(event="REDIS_CONNECTED", url=%self.config.redis_url, "Redis Auto-Healing ConnectionManager başarıyla başlatıldı.");
