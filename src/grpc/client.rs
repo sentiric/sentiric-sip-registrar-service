@@ -13,7 +13,8 @@ pub struct InternalClients {
 
 impl InternalClients {
     pub async fn connect(config: &AppConfig) -> Result<Self> {
-        info!("User Service'e bağlanılıyor...");
+        // [ARCH-COMPLIANCE] ARCH-007: Loglarda event tag'i eklendi
+        info!(event = "GRPC_CLIENT_CONNECTING", "User Service'e bağlanılıyor...");
         let user_channel = create_secure_channel(&config.user_service_url, "user-service", config).await?;
         
         Ok(Self {
@@ -26,7 +27,8 @@ async fn create_secure_channel(url: &str, server_name: &str, config: &AppConfig)
     let target_url = if url.starts_with("https://") {
         url.to_string()
     } else if url.starts_with("http://") {
-        warn!(url, "Güvensiz şema (http) algılandı, HTTPS'e zorlanıyor.");
+        // [ARCH-COMPLIANCE] ARCH-007: Loglarda event tag'i eklendi
+        warn!(event = "GRPC_CLIENT_INSECURE_URL", url, "Güvensiz şema (http) algılandı, HTTPS'e zorlanıyor.");
         url.replace("http://", "https://")
     } else {
         format!("https://{}", url)
@@ -43,7 +45,8 @@ async fn create_secure_channel(url: &str, server_name: &str, config: &AppConfig)
         .ca_certificate(ca_certificate)
         .identity(identity);
 
-    info!(url=%target_url, server_name=%server_name, "Güvenli gRPC kanalına bağlanılıyor...");
+    //[ARCH-COMPLIANCE] ARCH-007: Loglarda event tag'i eklendi
+    info!(event = "GRPC_CHANNEL_CREATING", url=%target_url, server_name=%server_name, "Güvenli gRPC kanalına bağlanılıyor...");
 
     // [KRİTİK DÜZELTME]: HTTP/2 Keep-Alive eklendi.
     let channel = Channel::from_shared(target_url)?
@@ -55,6 +58,7 @@ async fn create_secure_channel(url: &str, server_name: &str, config: &AppConfig)
         .connect()
         .await?;
 
-    info!("gRPC bağlantısı başarılı.");
+    //[ARCH-COMPLIANCE] ARCH-007: Loglarda event tag'i eklendi
+    info!(event = "GRPC_CHANNEL_CREATED", "gRPC bağlantısı başarılı.");
     Ok(channel)
 }

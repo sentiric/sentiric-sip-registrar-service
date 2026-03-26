@@ -1,7 +1,7 @@
 # Dosya: Cargo.toml
 [package]
 name = "sentiric-sip-registrar-service"
-version = "1.1.7"
+version = "1.1.8" #[ARCH-COMPLIANCE] SemVer kuralları gereği versiyon artırıldı
 edition = "2021"
 
 [dependencies]
@@ -14,7 +14,7 @@ hyper = { version = "0.14", features = ["full"] }
 
 # Observability
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "registry"] }
+tracing-subscriber = { version = "0.3", features =["env-filter", "json", "registry"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 hostname = "0.3" 

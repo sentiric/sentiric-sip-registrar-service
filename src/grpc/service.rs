@@ -60,18 +60,26 @@ impl RegistrarService for MyRegistrarService {
             guard.user.clone()
         };
 
-        // User Service'e de Trace ID'yi gönder (Metadata propagation Tonic ile otomatik olabilir ama explicit yapmak iyidir)
-        // Burada basitlik için doğrudan çağırıyoruz.
-
-        let user_res = user_client.get_sip_credentials(Request::new(GetSipCredentialsRequest {
+        // [ARCH-COMPLIANCE] ARCH-006 & Timeout Kuralları uygulanıyor
+        let mut user_req = Request::new(GetSipCredentialsRequest {
             sip_username: username.clone(),
             realm: self.config.sip_realm.clone(),
-        })).await;
+        });
+
+        // Zorunlu Timeout (resilience.timeouts)
+        user_req.set_timeout(std::time::Duration::from_secs(5));
+
+        // Trace ID Yayılımı (observability.tracing context propagation)
+        if let Ok(meta_val) = trace_id.parse() {
+            user_req.metadata_mut().insert("x-trace-id", meta_val);
+        }
+
+        let user_res = user_client.get_sip_credentials(user_req).await;
 
         match user_res {
             Ok(res) => {
                 let inner = res.into_inner();
-                // [SUTS v4.0]: REGISTER SUCCESS
+                //[SUTS v4.0]: REGISTER SUCCESS
                 info!(
                     event = "SIP_REGISTER_SUCCESS",
                     trace_id = %trace_id,
@@ -89,7 +97,7 @@ impl RegistrarService for MyRegistrarService {
                 Ok(Response::new(RegisterResponse { success: true }))
             },
             Err(e) => {
-                // [SUTS v4.0]: AUTH FAILURE
+                //[SUTS v4.0]: AUTH FAILURE
                 warn!(
                     event = "SIP_AUTH_FAILURE",
                     trace_id = %trace_id,
@@ -131,7 +139,4 @@ impl RegistrarService for MyRegistrarService {
             Ok(Response::new(LookupContactResponse { contact_uris: vec![c] }))
         } else {
             info!(event="SIP_LOOKUP_MISS", uri=%req.sip_uri, "Kullanıcı bulunamadı (Offline)");
-            Ok(Response::new(LookupContactResponse { contact_uris: vec![] }))
-        }
-    }
-}
+            Ok(Response::new(LookupContactResponse { contact_uris: vec!
