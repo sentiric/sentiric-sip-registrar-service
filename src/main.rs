@@ -4,7 +4,6 @@ use sentiric_sip_registrar_service::app::App;
 use std::process;
 
 fn main() -> Result<()> {
-    // Rust'taki tonic/tokio yapısı gereği main asenkron olamaz.
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -12,14 +11,31 @@ fn main() -> Result<()> {
 
     runtime.block_on(async {
         match App::bootstrap().await {
-            Ok(app) => app.run().await,
+            Ok(app) => {
+                if let Err(e) = app.run().await {
+                    // [SUTS v4.0 Compliance]
+                    let err_json = serde_json::json!({
+                        "schema_v": "1.0.0",
+                        "severity": "FATAL",
+                        "event": "SERVICE_RUNTIME_CRASH",
+                        "message": format!("Uygulama çalışma zamanında çöktü: {:?}", e)
+                    });
+                    eprintln!("{}", err_json);
+                    process::exit(1);
+                }
+            }
             Err(e) => {
-                // [ARCH-COMPLIANCE] ARCH-005: standart yazdırma makroları (eprintln!) yasaktır.
-                // Tracing makroları henüz başlatılamamış olabileceği için, STDERR'e manuel JSON (SUTS v4.0 uyumlu) çıktı basıyoruz.
-                let err_msg = format!("{{\"schema_v\":\"1.0.0\",\"severity\":\"FATAL\",\"event\":\"APP_STARTUP_FAILED\",\"message\":\"Kritik Hata: Uygulama başlatılamadı: {:?}\"}}\n", e);
-                let _ = std::io::Write::write_all(&mut std::io::stderr(), err_msg.as_bytes());
+                // [ARCH-COMPLIANCE] ARCH-005: Raw stderr output converted to SUTS JSON
+                let err_json = serde_json::json!({
+                    "schema_v": "1.0.0",
+                    "severity": "FATAL",
+                    "event": "BOOTSTRAP_FAILED",
+                    "message": format!("Kritik Hata: Uygulama başlatılamadı: {:?}", e)
+                });
+                eprintln!("{}", err_json);
                 process::exit(1);
             }
         }
-    })
+    });
+    Ok(())
 }

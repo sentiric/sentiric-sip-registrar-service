@@ -1,5 +1,4 @@
 // src/grpc/service.rs
-
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use sentiric_contracts::sentiric::sip::v1::{
@@ -26,7 +25,6 @@ impl MyRegistrarService {
         Self { store, clients, config }
     }
     
-    // Trace ID Çıkarıcı
     fn extract_trace_id<T>(req: &Request<T>) -> String {
         req.metadata().get("x-trace-id")
             .and_then(|v| v.to_str().ok())
@@ -54,22 +52,20 @@ impl RegistrarService for MyRegistrarService {
             return Err(Status::invalid_argument("Invalid SIP URI"));
         }
 
-        // 1. User Service Sorgusu
         let mut user_client = {
             let guard = self.clients.lock().await;
             guard.user.clone()
         };
 
-        // [ARCH-COMPLIANCE] ARCH-006 & Timeout Kuralları uygulanıyor
+        // [ARCH-COMPLIANCE] ARCH-006: Context Propagation
         let mut user_req = Request::new(GetSipCredentialsRequest {
             sip_username: username.clone(),
             realm: self.config.sip_realm.clone(),
         });
-
-        // Zorunlu Timeout (resilience.timeouts)
+        
+        // [ARCH-COMPLIANCE] ARCH-004: Mandatory Timeout
         user_req.set_timeout(std::time::Duration::from_secs(5));
 
-        // Trace ID Yayılımı (observability.tracing context propagation)
         if let Ok(meta_val) = trace_id.parse() {
             user_req.metadata_mut().insert("x-trace-id", meta_val);
         }
@@ -79,25 +75,22 @@ impl RegistrarService for MyRegistrarService {
         match user_res {
             Ok(res) => {
                 let inner = res.into_inner();
-                //[SUTS v4.0]: REGISTER SUCCESS
                 info!(
                     event = "SIP_REGISTER_SUCCESS",
                     trace_id = %trace_id,
                     sip.user = %username,
                     tenant.id = %inner.tenant_id,
-                    "Kullanıcı doğrulandı ve kaydediliyor"
+                    "Kullanıcı doğrulandı"
                 );
                 
-                // 2. Redis Kaydı
                 if let Err(e) = self.store.register_user(&req.sip_uri, &req.contact_uri, req.expires).await {
-                    error!(event="SIP_REGISTER_STORE_FAIL", user=%username, error=%e, "Redis yazma hatası");
+                    error!(event="SIP_REGISTER_STORE_FAIL", user=%username, error=%e, "Redis hatası");
                     return Err(Status::internal("Location store failure"));
                 }
                 
                 Ok(Response::new(RegisterResponse { success: true }))
             },
             Err(e) => {
-                //[SUTS v4.0]: AUTH FAILURE
                 warn!(
                     event = "SIP_AUTH_FAILURE",
                     trace_id = %trace_id,
@@ -116,10 +109,10 @@ impl RegistrarService for MyRegistrarService {
         Span::current().record("trace_id", &trace_id);
         
         let req = request.into_inner();
-        info!(event="SIP_UNREGISTER_REQUEST", uri=%req.sip_uri, "Kayıt silme isteği");
+        info!(event="SIP_UNREGISTER_REQUEST", uri=%req.sip_uri, "Kayıt silme");
         
         if let Err(e) = self.store.unregister_user(&req.sip_uri).await {
-            error!(event="SIP_UNREGISTER_FAIL", error=%e, "Silme hatası");
+            error!(event="SIP_UNREGISTER_FAIL", error=%e, "Redis silme hatası");
             return Err(Status::internal("Location store failure"));
         }
         
@@ -135,8 +128,11 @@ impl RegistrarService for MyRegistrarService {
         let contact = self.store.lookup_user(&req.sip_uri).await;
 
         if let Some(c) = contact {
-            info!(event="SIP_LOOKUP_HIT", uri=%req.sip_uri, contact=%c, "Kullanıcı bulundu");
+            info!(event="SIP_LOOKUP_HIT", uri=%req.sip_uri, contact=%c, "Kullanıcı konumu bulundu");
             Ok(Response::new(LookupContactResponse { contact_uris: vec![c] }))
         } else {
-            info!(event="SIP_LOOKUP_MISS", uri=%req.sip_uri, "Kullanıcı bulunamadı (Offline)");
-            Ok(Response::new(LookupContactResponse { contact_uris: vec!
+            info!(event="SIP_LOOKUP_MISS", uri=%req.sip_uri, "Kullanıcı offline");
+            Ok(Response::new(LookupContactResponse { contact_uris: vec![] }))
+        }
+    }
+}

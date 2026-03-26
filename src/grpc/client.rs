@@ -13,8 +13,8 @@ pub struct InternalClients {
 
 impl InternalClients {
     pub async fn connect(config: &AppConfig) -> Result<Self> {
-        // [ARCH-COMPLIANCE] ARCH-007: Loglarda event tag'i eklendi
-        info!(event = "GRPC_CLIENT_CONNECTING", "User Service'e bağlanılıyor...");
+        // [ARCH-COMPLIANCE] ARCH-007: Added event tag
+        info!(event = "INTERNAL_CLIENT_INIT", "User Service bağlantısı kuruluyor...");
         let user_channel = create_secure_channel(&config.user_service_url, "user-service", config).await?;
         
         Ok(Self {
@@ -45,10 +45,9 @@ async fn create_secure_channel(url: &str, server_name: &str, config: &AppConfig)
         .ca_certificate(ca_certificate)
         .identity(identity);
 
-    //[ARCH-COMPLIANCE] ARCH-007: Loglarda event tag'i eklendi
-    info!(event = "GRPC_CHANNEL_CREATING", url=%target_url, server_name=%server_name, "Güvenli gRPC kanalına bağlanılıyor...");
+    // [ARCH-COMPLIANCE] ARCH-007: Added event tag
+    info!(event = "GRPC_TLS_HANDSHAKE_START", url=%target_url, "Güvenli kanal oluşturuluyor...");
 
-    // [KRİTİK DÜZELTME]: HTTP/2 Keep-Alive eklendi.
     let channel = Channel::from_shared(target_url)?
         .connect_timeout(Duration::from_secs(5))
         .keep_alive_while_idle(true)
@@ -58,7 +57,6 @@ async fn create_secure_channel(url: &str, server_name: &str, config: &AppConfig)
         .connect()
         .await?;
 
-    //[ARCH-COMPLIANCE] ARCH-007: Loglarda event tag'i eklendi
-    info!(event = "GRPC_CHANNEL_CREATED", "gRPC bağlantısı başarılı.");
+    info!(event = "GRPC_CONNECTION_ESTABLISHED", "gRPC bağlantısı başarılı.");
     Ok(channel)
 }
