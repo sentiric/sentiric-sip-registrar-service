@@ -1,7 +1,7 @@
 pub mod app;
 pub mod config;
+pub mod data;
 pub mod error;
 pub mod grpc;
-pub mod tls;
-pub mod data; 
-pub mod telemetry; // YENİ
+pub mod telemetry;
+pub mod tls; // YENİ

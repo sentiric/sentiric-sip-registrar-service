@@ -3,8 +3,8 @@
 use crate::config::AppConfig;
 use anyhow::Result;
 use sentiric_contracts::sentiric::user::v1::user_service_client::UserServiceClient;
-use tonic::transport::{Channel, ClientTlsConfig, Certificate, Identity};
 use std::time::Duration;
+use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use tracing::{info, warn};
 
 pub struct InternalClients {
@@ -14,21 +14,32 @@ pub struct InternalClients {
 impl InternalClients {
     pub async fn connect(config: &AppConfig) -> Result<Self> {
         // [ARCH-COMPLIANCE] ARCH-007: Added event tag
-        info!(event = "INTERNAL_CLIENT_INIT", "User Service bağlantısı kuruluyor...");
-        let user_channel = create_secure_channel(&config.user_service_url, "user-service", config).await?;
-        
+        info!(
+            event = "INTERNAL_CLIENT_INIT",
+            "User Service bağlantısı kuruluyor..."
+        );
+        let user_channel =
+            create_secure_channel(&config.user_service_url, "user-service", config).await?;
+
         Ok(Self {
             user: UserServiceClient::new(user_channel),
         })
     }
 }
 
-async fn create_secure_channel(url: &str, server_name: &str, config: &AppConfig) -> Result<Channel> {
+async fn create_secure_channel(
+    url: &str,
+    server_name: &str,
+    config: &AppConfig,
+) -> Result<Channel> {
     let target_url = if url.starts_with("https://") {
         url.to_string()
     } else if url.starts_with("http://") {
         // [ARCH-COMPLIANCE] ARCH-007: Loglarda event tag'i eklendi
-        warn!(event = "GRPC_CLIENT_INSECURE_URL", url, "Güvensiz şema (http) algılandı, HTTPS'e zorlanıyor.");
+        warn!(
+            event = "GRPC_CLIENT_INSECURE_URL",
+            url, "Güvensiz şema (http) algılandı, HTTPS'e zorlanıyor."
+        );
         url.replace("http://", "https://")
     } else {
         format!("https://{}", url)
@@ -57,6 +68,9 @@ async fn create_secure_channel(url: &str, server_name: &str, config: &AppConfig)
         .connect()
         .await?;
 
-    info!(event = "GRPC_CONNECTION_ESTABLISHED", "gRPC bağlantısı başarılı.");
+    info!(
+        event = "GRPC_CONNECTION_ESTABLISHED",
+        "gRPC bağlantısı başarılı."
+    );
     Ok(channel)
 }

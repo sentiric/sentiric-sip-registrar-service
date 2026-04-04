@@ -21,9 +21,11 @@ impl From<ServiceError> for Status {
         match err {
             ServiceError::GrpcStatus(s) => s,
             ServiceError::RedisError(e) => Status::internal(format!("Redis hatası: {}", e)),
-            ServiceError::GrpcTransportError(e) => Status::unavailable(format!("gRPC bağlantı hatası: {}", e)),
+            ServiceError::GrpcTransportError(e) => {
+                Status::unavailable(format!("gRPC bağlantı hatası: {}", e))
+            }
             // Hata çözümü: Debug formatı kullanılarak Display gereksinimi geçici olarak karşılandı.
-            _ => Status::internal(format!("{:#?}", err)), 
+            _ => Status::internal(format!("{:#?}", err)),
         }
     }
 }

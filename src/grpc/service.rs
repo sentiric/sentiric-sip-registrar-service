@@ -1,18 +1,16 @@
 // src/grpc/service.rs
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use crate::config::AppConfig;
+use crate::data::store::RegistrationStore;
+use crate::grpc::client::InternalClients;
 use sentiric_contracts::sentiric::sip::v1::{
-    registrar_service_server::RegistrarService, 
-    RegisterRequest, RegisterResponse, 
-    UnregisterRequest, UnregisterResponse, 
-    LookupContactRequest, LookupContactResponse
+    registrar_service_server::RegistrarService, LookupContactRequest, LookupContactResponse,
+    RegisterRequest, RegisterResponse, UnregisterRequest, UnregisterResponse,
 };
 use sentiric_contracts::sentiric::user::v1::GetSipCredentialsRequest;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use tonic::{Request, Response, Status};
-use tracing::{info, error, warn, instrument, Span};
-use crate::grpc::client::InternalClients;
-use crate::data::store::RegistrationStore;
-use crate::config::AppConfig;
+use tracing::{error, info, instrument, warn, Span};
 
 pub struct MyRegistrarService {
     store: RegistrationStore,
@@ -21,12 +19,21 @@ pub struct MyRegistrarService {
 }
 
 impl MyRegistrarService {
-    pub fn new(store: RegistrationStore, clients: Arc<Mutex<InternalClients>>, config: Arc<AppConfig>) -> Self {
-        Self { store, clients, config }
+    pub fn new(
+        store: RegistrationStore,
+        clients: Arc<Mutex<InternalClients>>,
+        config: Arc<AppConfig>,
+    ) -> Self {
+        Self {
+            store,
+            clients,
+            config,
+        }
     }
-    
+
     fn extract_trace_id<T>(req: &Request<T>) -> String {
-        req.metadata().get("x-trace-id")
+        req.metadata()
+            .get("x-trace-id")
             .and_then(|v| v.to_str().ok())
             .unwrap_or("unknown")
             .to_string()
@@ -35,7 +42,6 @@ impl MyRegistrarService {
 
 #[tonic::async_trait]
 impl RegistrarService for MyRegistrarService {
-    
     #[instrument(skip(self, request), fields(trace_id, sip.uri = %request.get_ref().sip_uri))]
     async fn register(
         &self,
@@ -43,7 +49,7 @@ impl RegistrarService for MyRegistrarService {
     ) -> Result<Response<RegisterResponse>, Status> {
         let trace_id = Self::extract_trace_id(&request);
         Span::current().record("trace_id", &trace_id);
-        
+
         let req = request.into_inner();
         let username = sentiric_sip_core::utils::extract_username_from_uri(&req.sip_uri);
 
@@ -62,7 +68,7 @@ impl RegistrarService for MyRegistrarService {
             sip_username: username.clone(),
             realm: self.config.sip_realm.clone(),
         });
-        
+
         // [ARCH-COMPLIANCE] ARCH-004: Mandatory Timeout
         user_req.set_timeout(std::time::Duration::from_secs(5));
 
@@ -82,14 +88,18 @@ impl RegistrarService for MyRegistrarService {
                     tenant.id = %inner.tenant_id,
                     "Kullanıcı doğrulandı"
                 );
-                
-                if let Err(e) = self.store.register_user(&req.sip_uri, &req.contact_uri, req.expires).await {
+
+                if let Err(e) = self
+                    .store
+                    .register_user(&req.sip_uri, &req.contact_uri, req.expires)
+                    .await
+                {
                     error!(event="SIP_REGISTER_STORE_FAIL", user=%username, error=%e, "Redis hatası");
                     return Err(Status::internal("Location store failure"));
                 }
-                
+
                 Ok(Response::new(RegisterResponse { success: true }))
-            },
+            }
             Err(e) => {
                 warn!(
                     event = "SIP_AUTH_FAILURE",
@@ -104,35 +114,45 @@ impl RegistrarService for MyRegistrarService {
     }
 
     #[instrument(skip(self, request), fields(trace_id, sip.uri = %request.get_ref().sip_uri))]
-    async fn unregister(&self, request: Request<UnregisterRequest>) -> Result<Response<UnregisterResponse>, Status> {
+    async fn unregister(
+        &self,
+        request: Request<UnregisterRequest>,
+    ) -> Result<Response<UnregisterResponse>, Status> {
         let trace_id = Self::extract_trace_id(&request);
         Span::current().record("trace_id", &trace_id);
-        
+
         let req = request.into_inner();
         info!(event="SIP_UNREGISTER_REQUEST", uri=%req.sip_uri, "Kayıt silme");
-        
+
         if let Err(e) = self.store.unregister_user(&req.sip_uri).await {
             error!(event="SIP_UNREGISTER_FAIL", error=%e, "Redis silme hatası");
             return Err(Status::internal("Location store failure"));
         }
-        
+
         Ok(Response::new(UnregisterResponse { success: true }))
     }
 
     #[instrument(skip(self, request), fields(trace_id, sip.uri = %request.get_ref().sip_uri))]
-    async fn lookup_contact(&self, request: Request<LookupContactRequest>) -> Result<Response<LookupContactResponse>, Status> {
+    async fn lookup_contact(
+        &self,
+        request: Request<LookupContactRequest>,
+    ) -> Result<Response<LookupContactResponse>, Status> {
         let trace_id = Self::extract_trace_id(&request);
         Span::current().record("trace_id", &trace_id);
-        
+
         let req = request.into_inner();
         let contact = self.store.lookup_user(&req.sip_uri).await;
 
         if let Some(c) = contact {
             info!(event="SIP_LOOKUP_HIT", uri=%req.sip_uri, contact=%c, "Kullanıcı konumu bulundu");
-            Ok(Response::new(LookupContactResponse { contact_uris: vec![c] }))
+            Ok(Response::new(LookupContactResponse {
+                contact_uris: vec![c],
+            }))
         } else {
             info!(event="SIP_LOOKUP_MISS", uri=%req.sip_uri, "Kullanıcı offline");
-            Ok(Response::new(LookupContactResponse { contact_uris: vec![] }))
+            Ok(Response::new(LookupContactResponse {
+                contact_uris: vec![],
+            }))
         }
     }
 }
