@@ -90,7 +90,9 @@ impl App {
             }
         }
 
-        let _ = shutdown_tx.send(());
+        // ✅ YENİ (Sonuna .await eklendi)
+        let _ = shutdown_tx.send(()).await;
+
         Ok(())
     }
 

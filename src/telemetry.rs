@@ -102,10 +102,12 @@ where
 
         let trace_id = if let Some(tid) = visitor.fields.get("trace_id").and_then(|v| v.as_str()) {
             Some(tid.to_string())
-        } else if let Some(cid) = visitor.fields.get("sip.call_id").and_then(|v| v.as_str()) {
-            Some(cid.to_string())
         } else {
-            None
+            visitor
+                .fields
+                .get("sip.call_id")
+                .and_then(|v| v.as_str())
+                .map(|cid| cid.to_string())
         };
 
         // [ARCH-COMPLIANCE] Span ID Propagation (OTel Uyumlu)
